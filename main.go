@@ -22,6 +22,8 @@ type Config struct {
 	FailIfNotFound     bool
 	InsecureSkipVerify bool
 	TrustedCAFile      string
+	ClientCertFile     string
+	ClientKeyFile      string
 }
 
 var (
@@ -115,6 +117,24 @@ var (
 			Usage:     "ACL token for connecting to Consul",
 			Value:     &plugin.Token,
 		},
+		{
+			Path:      "client-cert-file",
+			Env:       "",
+			Argument:  "client-cert-file",
+			Shorthand: "C",
+			Default:   "",
+			Usage:     "mTLS certificate in PEM format",
+			Value:     &plugin.ClientCertFile,
+		},
+		{
+			Path:      "client-key-file",
+			Env:       "",
+			Argument:  "client-key-file",
+			Shorthand: "K",
+			Default:   "",
+			Usage:     "mTLS key in PEM format",
+			Value:     &plugin.ClientKeyFile,
+		},
 	}
 )
 
@@ -127,6 +147,13 @@ func checkArgs(event *types.Event) (int, error) {
 	if len(plugin.Tags) > 0 && plugin.All {
 		return sensu.CheckStateCritical, fmt.Errorf("--tags and --all are mutually exclusive")
 	}
+	if len(plugin.ClientCertFile) > 0 && len(plugin.ClientKeyFile) == 0 {
+		return sensu.CheckStateCritical, fmt.Errorf("--client-key-file and --client-cert-file must be specified together")
+	}
+	if len(plugin.ClientKeyFile) > 0 && len(plugin.ClientCertFile) == 0 {
+		return sensu.CheckStateCritical, fmt.Errorf("--client-key-file and --client-cert-file must be specified together")
+	}
+
 	return sensu.CheckStateOK, nil
 }
 
@@ -147,6 +174,10 @@ func executeCheck(event *types.Event) (int, error) {
 		conf.TLSConfig.InsecureSkipVerify = plugin.InsecureSkipVerify
 		if len(plugin.TrustedCAFile) > 0 {
 			conf.TLSConfig.CAFile = plugin.TrustedCAFile
+		}
+		if len(plugin.ClientCertFile) > 0 {
+			conf.TLSConfig.CertFile = plugin.ClientCertFile
+			conf.TLSConfig.KeyFile = plugin.ClientKeyFile
 		}
 	}
 
